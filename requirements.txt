@@ -1,0 +1,4 @@
+flask
+pillow
+qrcode
+cloudconvert
