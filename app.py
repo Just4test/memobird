@@ -88,7 +88,11 @@ app.config.update(
 
 @app.route('/')
 def index():
-    return 'OK'
+    info = {
+        'info': 'Welecome. You can create device by post /device, and create an token, and print by token.',
+        'create_device_url': url_for('create_device')
+    }
+    return jsonify(info)
     
 def update_device_auth(device_id, conn):
     c = conn.cursor()
