@@ -90,7 +90,7 @@ app.config.update(
 def index():
     info = {
         'info': 'Welecome. You can create device by post /device, and create an token, and print by token.',
-        'create_device_url': url_for('create_device')
+        'create_device_url': url_for('create_device', _external=True)
     }
     return jsonify(info)
     
