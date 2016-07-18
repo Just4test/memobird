@@ -1,4 +1,5 @@
 import os
+import sys
 from flask import Flask, redirect, request, g, url_for, render_template, send_file, jsonify
 import requests
 import base64
@@ -11,8 +12,43 @@ import json
 from PIL import Image
 import cloudconvert
 
+####################处理参数################
+
 ak = os.environ.get('MEMOBIRD_AK')
+if ak:
+    print('Read access key from env.')
 cloudconvert_key = os.environ.get('CLOUDCONVERT_KEY')
+if cloudconvert_key:
+    print('Read cloudconvert key from env.')
+
+arg = None
+argi = 0
+def next_arg():
+    global argi, arg
+    argi = argi + 1
+    if argi >= len(sys.argv):
+        arg = None
+        return None
+    arg = sys.argv[argi]
+    return arg
+    
+while next_arg() is not None:
+    if '--ak' == arg:
+        ak = next_arg()
+        print('Set access key by args.')
+    elif '--cloudconvert' == arg:
+        cloudconvert_key = next_arg()
+        print('Set cloudconvert key by args.')
+    else:
+        print('Unknown argument {}'.format(arg))
+        exit(1)
+        
+if not ak:
+    print('Haven`t give access key.')
+    exit(1)
+if not cloudconvert_key:
+    print('Haven`t give cloudconvert key.')
+    exit(1)
 cloudconvert_api = cloudconvert.Api(cloudconvert_key)
 
 AUTH_TIMEOUT = 60
@@ -65,7 +101,7 @@ def update_device_auth(device_id, conn):
 @app.route('/device', methods = ['POST'])
 def create_device():
     '将一个设备添加到系统中'
-    device_id = request.form.get('device_id')
+    device_id = request.values.get('device_id')
     if not device_id:
         info = {
             'info':'Can`t find device_id in form'

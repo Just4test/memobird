@@ -1,2 +1,3 @@
-sudo apt-get install python3-pyqt5
-sudo apt-get install python3-pyqt5.qtwebkit xvfb
+FROM python:3.4-onbuild
+EXPOSE 8080
+CMD [ "python", "./app.py" ]
