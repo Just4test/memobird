@@ -81,7 +81,7 @@ conn.close()
 
 print('Start server...')
 app = Flask(__name__)
-app.debug = False
+app.debug = True
 app.config.update(
     conn = conn
 )

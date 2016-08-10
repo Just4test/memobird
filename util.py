@@ -5,6 +5,7 @@ import base64
 import qrcode
 from flask import jsonify
 from inspect import isgenerator, isfunction
+import json
 
 DEVICE_WIDTH = 384 #设备能打印的宽度
 
@@ -17,7 +18,6 @@ def convert_img(img):
     width, height = img.size
     if width > DEVICE_WIDTH:
         new_height = int(height * DEVICE_WIDTH / width)
-        print('图片的当前尺寸是{},{} 调整为{},{}'.format(width, height, DEVICE_WIDTH, new_height))
         img = img.resize((DEVICE_WIDTH, new_height), Image.BILINEAR)
     img = img.convert('1')
     bmp_data = BytesIO()
@@ -141,20 +141,42 @@ def get_content_from_request(request):
     '''
     content_type = request.headers.get('Content-Type')
     def decode_data_to_str(data):
-        print('解码', data)
         charset = 'utf8'
         if content_type:
             temp = content_type.split('charset=')
             if len(temp) > 1:
                 charset = temp[1].split(';')[0]
-        print('结果是', data.decode(charset))
         return data.decode(charset)
     
-    def txt_converter(data):
-        return decode_data_to_str(data)
+    def txt_converter(data, need_decode = True):
+        if need_decode:
+            data = decode_data_to_str(data)
+        return data
     
-    def html_converter(data):
-        data = decode_data_to_str(data)
+    def url_converter(data, need_decode = True):
+        url = decode_data_to_str(data) if need_decode else data
+        def convert(cloudconvert_api):
+            process = cloudconvert_api.convert({
+                "inputformat": "website",
+                "outputformat": "png",
+                "input": 'url',
+                "file": url,
+                "converteroptions": {
+                    "screen_width": DEVICE_WIDTH,
+                    "javascript_delay": 1000
+                },
+                "timeout": 59,
+                "save": True
+            })
+            
+            process.wait()
+            return download_convert_image(process)
+            
+        return convert
+    
+    def html_converter(data, need_decode = True):
+        if need_decode:
+            data = decode_data_to_str(data)
         def convert(cloudconvert_api):
             process = cloudconvert_api.convert({
                 "inputformat": "html",
@@ -174,8 +196,9 @@ def get_content_from_request(request):
             
         return convert
     
-    def md_converter(data):
-        data = decode_data_to_str(data)
+    def md_converter(data, need_decode = True):
+        if need_decode:
+            data = decode_data_to_str(data)
         def convert(cloudconvert_api):
             # 先将markdown转换为html，再把html转换为png
             process = cloudconvert_api.convert({
@@ -210,11 +233,15 @@ def get_content_from_request(request):
             
         return convert
     
-    def img_converter(data):
+    def img_converter(data, need_decode = True):
         return Image.open(BytesIO(data))
     
-    def qr_converter(data):
-        return qrcode.make(decode_data_to_str(data))
+    def qr_converter(data, need_decode = True):
+        if need_decode:
+            data = decode_data_to_str(data)
+        return qrcode.make(data)
+        
+    #尝试直接解析请求体
     
     print('内容类型是', content_type)
     if content_type:
@@ -236,6 +263,8 @@ def get_content_from_request(request):
         'md': md_converter,
         'markdown': md_converter,
         
+        'url': url_converter,
+        
         'htm': md_converter,
         'html': md_converter,
         
@@ -248,6 +277,8 @@ def get_content_from_request(request):
     }
             
     contents = []
+    
+    #以参数形式解析。参数可以以url params或form data形式提供
     
     def find_content_from_value(suffix):
         content = request.values.get('content' + suffix)
@@ -265,16 +296,24 @@ def get_content_from_request(request):
     for c in '0123456789':
         find_content_from_value(c)
     
-    def find_content_from_multipart(name, data):
-        tp = name.split('.')[-1]
+    #以json和文件形式解析。
+    
+    def find_content_from_multipart(tp, value):
         converter = convert_map.get(tp)
         if not converter:
-            return None, None, 'File "{}" has extension name "{}", which can not be understand'.format(name, tp)
-        ct = converter(data.read())
+            return None, None, 'File "{}" has extension name "{}", which can not be understand'.format(value, tp)
+        if value in request.files:
+            value = request.files[value].read()
+            ct = converter(value)
+        else:
+            ct = converter(value, False)
+        
         contents.append(ct)
-    
-    for name, data in request.files.items():
-        find_content_from_multipart(name, data)
+        
+    if 'json' in request.values:
+        arr = json.loads(request.values['json'])
+        for tp, value in arr:
+            find_content_from_multipart(tp, value)
     
     need_convert = False
     for c in contents:
