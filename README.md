@@ -32,7 +32,7 @@ Memobird的[API](http://open.memobird.cn/)仅能打印无格式文本和图片�
 #### /device/{device_id}/token GET
 列出指定设备的所有token
 #### /device/{device_id}/token POST
-为设备创建新token。可以附带参数token以指定token，以及参数passwd以使用密码保护改token。如果不指定token，则会生成一个uuid token。
+为设备创建新token。可以附带参数token以指定token，以及参数passwd以使用密码保护该token。如果不指定token，则会生成一个uuid token。
 #### /token/{token} POST
 向token绑定的设备打印。可以打印文本、图片、html、markdown。
 
